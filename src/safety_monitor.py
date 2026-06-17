@@ -84,10 +84,10 @@ def clamp_box(xyxy, width, height):
     ]
 
 
-def draw_label_box(frame, xyxy, label, conf, alert):
+def draw_label_box(frame, xyxy, label, conf):
     h, w = frame.shape[:2]
     x1, y1, x2, y2 = clamp_box(xyxy, w, h)
-    color = (0, 0, 255) if alert else (40, 220, 80)
+    color = (40, 220, 80)
 
     font_scale = max(0.45, min(0.75, w / 1100.0))
     thickness = max(1, int(round(font_scale * 3)))
@@ -112,17 +112,18 @@ def draw_label_box(frame, xyxy, label, conf, alert):
 def draw_status(frame, fight_label, fight_prob, raw_prob, people_count, fps, threshold):
     h, w = frame.shape[:2]
     alert = fight_label == "FIGHT"
-    color = (0, 0, 255) if alert else (40, 220, 80)
+    fight_color = (0, 0, 255) if alert else (40, 220, 80)
+    people_color = (40, 220, 80)
     font_scale = max(0.48, min(0.9, w / 950.0))
     thickness = max(1, int(round(font_scale * 3)))
 
     lines = [
-        f"{fight_label} smooth={fight_prob:.2f} raw={raw_prob:.2f}",
-        f"people={people_count} fps={fps:.1f} threshold={threshold:.2f}",
+        (f"{fight_label} smooth={fight_prob:.2f} raw={raw_prob:.2f}", fight_color),
+        (f"people={people_count} fps={fps:.1f} threshold={threshold:.2f}", people_color),
     ]
 
     y = 30
-    for line in lines:
+    for line, color in lines:
         cv2.putText(
             frame,
             line,
@@ -146,7 +147,7 @@ def draw_status(frame, fight_label, fight_prob, raw_prob, people_count, fps, thr
         y += int(30 * font_scale) + 10
 
     if alert:
-        cv2.rectangle(frame, (8, 8), (w - 8, h - 8), color, 3)
+        cv2.rectangle(frame, (8, 8), (w - 8, h - 8), fight_color, 3)
 
 
 def extract_people(result):
@@ -288,11 +289,10 @@ def run(args):
                     yolo_results = yolo_model.predict(frame, **predict_kwargs)
                 last_people = extract_people(yolo_results[0])
 
-            alert = current_fight_label == "FIGHT"
             for person in last_people:
                 person_id = person["person_id"]
                 label = f"person {person_id}" if person_id != "" else "person"
-                draw_label_box(frame, person["box"], label, person["confidence"], alert)
+                draw_label_box(frame, person["box"], label, person["confidence"])
 
             draw_status(
                 frame,

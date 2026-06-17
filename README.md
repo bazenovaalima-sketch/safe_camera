@@ -63,7 +63,7 @@ Official validation confusion matrix:
 
 Combined true-positive demo snapshot:
 
-This example shows the combined monitor: YOLO draws temporary person tracking boxes while the fight model reports the smoothed fight probability. In this 150-frame demo, 102 of 134 scored frames were labeled `FIGHT`, with max smoothed `p_fight=0.745`.
+This example shows the combined monitor: YOLO draws green temporary person tracking boxes while the fight model reports the smoothed fight probability. In this 150-frame demo, all 134 scored frames were labeled `FIGHT`, with average smoothed `p_fight=0.800` and max smoothed `p_fight=0.877`.
 
 ![Combined person detection and fight detection snapshot](docs/assets/true_positive_snapshot.png)
 
