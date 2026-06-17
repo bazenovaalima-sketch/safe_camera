@@ -1,36 +1,26 @@
 # Safe Camera Fight Detection
 
-Video fight detection prototype built with a 3D ResNet-18 action-recognition model.
+Safe Camera is a video-surveillance prototype for detecting possible fights in camera footage.
 
-The project classifies short surveillance-style video clips as `Fight` or `NonFight`, then applies sliding-window temporal smoothing for longer videos.
+It combines:
 
-## Features
+- an R3D-18 action-recognition model for `Fight` / `NonFight` classification;
+- YOLO person detection and temporary person tracking boxes;
+- a streaming monitor with a bounded frame queue, reconnect logic, FPS, latency, dropped-frame, and health metrics.
 
-- RWF-2000 dataset loader for `train/` and `val/` splits
-- R3D-18 backbone pretrained on Kinetics-400
-- Transfer learning with an optional frozen backbone
-- Single-video annotated inference
-- Long-video sliding-window processing with event CSV output
-- YOLO person detection/tracking for webcam, RTSP, or video files
-- CPU, CUDA, and Apple MPS device selection
+This is a research/prototype system, not a production safety product.
 
-## Project Structure
+## Demo
 
-```text
-docs/assets/                # Curated public result images and demo video
-src/
-├── dataset_rwf.py           # RWF-2000 video dataset
-├── model.py                 # R3D-18 binary classifier
-├── train_rwf.py             # Training loop
-├── inference.py             # Annotated single-video inference
-├── long_video_processor.py  # Sliding-window smoothing and event export
-├── webcam_processor.py      # Live webcam/stream fight detection
-├── person_detector.py       # YOLO person boxes and anonymous tracking IDs
-├── safety_monitor.py        # Combined YOLO people + fight probability monitor
-└── rtsp_monitor.py          # Streaming monitor with reconnect, frame queue, health metrics
-```
+Combined person detection + fight detection snapshot:
 
-Large local assets are intentionally ignored: datasets, trained weights, generated videos, and experiment outputs.
+This example shows the combined monitor: YOLO draws green temporary person tracking boxes while the fight model reports the smoothed fight probability. In this 150-frame demo, all 134 scored frames were labeled `FIGHT`, with average smoothed `p_fight=0.800` and max smoothed `p_fight=0.877`.
+
+![Combined person detection and fight detection snapshot](docs/assets/true_positive_snapshot.png)
+
+Combined annotated demo video:
+
+[Download/watch the MP4 demo](docs/assets/true_positive_demo.mp4)
 
 ## Current Results
 
@@ -62,15 +52,23 @@ Official validation confusion matrix:
 
 ![Official validation confusion matrix](docs/assets/official_val_confusion_matrix.png)
 
-Combined true-positive demo snapshot:
+## Pipeline
 
-This example shows the combined monitor: YOLO draws green temporary person tracking boxes while the fight model reports the smoothed fight probability. In this 150-frame demo, all 134 scored frames were labeled `FIGHT`, with average smoothed `p_fight=0.800` and max smoothed `p_fight=0.877`.
+```text
+Camera / video / RTSP stream
+        |
+        v
+Capture thread with reconnect + bounded frame queue
+        |
+        v
+YOLO person detection/tracking      R3D-18 fight classifier
+        |                            |
+        +------------+---------------+
+                     v
+Annotated video + predictions CSV + health CSV
+```
 
-![Combined person detection and fight detection snapshot](docs/assets/true_positive_snapshot.png)
-
-Combined annotated demo video:
-
-[Download/watch the MP4 demo](docs/assets/true_positive_demo.mp4)
+The person IDs are temporary tracking IDs such as `person 1` and `person 2`. They are not face recognition and do not identify real people.
 
 ## Setup
 
@@ -80,7 +78,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Expected RWF-2000 layout:
+Large files are intentionally not stored in the repository:
+
+- RWF-2000 dataset files;
+- trained `.pth` fight model weights;
+- generated videos and CSV outputs;
+- downloaded YOLO weights such as `yolo11n.pt`.
+
+Expected local RWF-2000 layout:
 
 ```text
 data/rwf2000/RWF-2000/
@@ -92,133 +97,13 @@ data/rwf2000/RWF-2000/
     └── NonFight/
 ```
 
-## Train
+## Recommended Run: Streaming Monitor
 
-```bash
-python src/train_rwf.py \
-  --data-dir data/rwf2000/RWF-2000 \
-  --model-dir models \
-  --epochs 20 \
-  --batch-size 8 \
-  --num-frames 16
-```
+`src/rtsp_monitor.py` is the most complete runtime path. It reads frames in a separate capture thread, keeps only a small queue of fresh frames, drops old frames when inference is slower than the camera, and records stream health metrics such as FPS, latency, dropped frames, and reconnect count.
 
-The default mode freezes the pretrained backbone and trains the final classification layer.
+You can test it without an IP camera by using a local video file or the laptop webcam. Later, the same command accepts an RTSP URL.
 
-## Single Video Inference
-
-```bash
-python src/inference.py \
-  data/rwf2000/RWF-2000/val/Fight/example.avi \
-  --model models/fight_detector.pth \
-  --output results/example_annotated.mp4 \
-  --num-frames 16 \
-  --stride 8 \
-  --threshold 0.5 \
-  --no-display
-```
-
-## Long Video Processing
-
-```bash
-python src/long_video_processor.py \
-  input_video.mp4 \
-  --model models/fight_detector.pth \
-  --output results/input_video_annotated.mp4 \
-  --num-frames 16 \
-  --stride 8 \
-  --threshold 0.55 \
-  --smooth-window 5
-```
-
-This writes an annotated video and an `_events.csv` file with detected fight intervals.
-
-## Webcam Fight Detection
-
-```bash
-python src/webcam_processor.py \
-  --source 0 \
-  --model models/fight_detector.pth \
-  --output results/webcam_fight_demo.mp4 \
-  --csv results/webcam_fight_demo.csv \
-  --duration 10 \
-  --num-frames 16 \
-  --stride 8 \
-  --smooth-window 3 \
-  --threshold 0.55 \
-  --device auto
-```
-
-Use `--no-display` when running without a preview window.
-
-## YOLO Person Detection
-
-The person detector uses an Ultralytics YOLO model pretrained on COCO. COCO includes a ready `person` class, so no person-specific training is needed for the first prototype. The default `yolo11n.pt` weight is downloaded automatically on first run.
-
-Webcam:
-
-```bash
-python src/person_detector.py \
-  --source 0 \
-  --output results/webcam_people.mp4 \
-  --csv results/webcam_people.csv \
-  --duration 10 \
-  --device auto \
-  --track
-```
-
-Video file:
-
-```bash
-python src/person_detector.py \
-  --source input_video.mp4 \
-  --output results/input_people.mp4 \
-  --csv results/input_people.csv \
-  --device auto \
-  --track \
-  --no-display
-```
-
-`--track` gives temporary anonymous IDs such as `person 1` and `person 2`. It does not recognize a real person's identity.
-
-## Combined Safety Monitor
-
-This runs both parts together on the same stream: YOLO draws people, while the R3D-18 model estimates fight probability from a rolling 16-frame window.
-
-```bash
-python src/safety_monitor.py \
-  --source 0 \
-  --fight-model models/fight_detector.pth \
-  --output results/safety_monitor.mp4 \
-  --csv results/safety_monitor.csv \
-  --duration 10 \
-  --fight-device auto \
-  --yolo-device auto \
-  --track
-```
-
-For a video file:
-
-```bash
-python src/safety_monitor.py \
-  --source input_video.mp4 \
-  --fight-model models/fight_detector.pth \
-  --output results/input_safety_monitor.mp4 \
-  --csv results/input_safety_monitor.csv \
-  --duration 0 \
-  --track \
-  --no-display
-```
-
-The combined CSV includes `fight_label`, raw and smoothed `p_fight`, `people_count`, temporary `person_id`, and bounding-box coordinates.
-
-## Streaming / RTSP Monitor
-
-`rtsp_monitor.py` is the more production-shaped monitor. It reads frames in a separate capture thread, keeps only a small queue of fresh frames, drops old frames when inference is slower than the camera, and records stream health metrics such as FPS, latency, dropped frames, and reconnect count.
-
-You can test this without an IP camera by using a local video file or the laptop webcam. Later, the same command accepts an RTSP URL.
-
-Test it on a local video file:
+Local video file:
 
 ```bash
 python src/rtsp_monitor.py \
@@ -234,7 +119,7 @@ python src/rtsp_monitor.py \
   --no-display
 ```
 
-Test it on a laptop webcam:
+Laptop webcam:
 
 ```bash
 python src/rtsp_monitor.py \
@@ -249,7 +134,7 @@ python src/rtsp_monitor.py \
   --track
 ```
 
-For a future IP camera, use the RTSP URL as the source:
+Future IP camera / RTSP stream:
 
 ```bash
 python src/rtsp_monitor.py \
@@ -262,8 +147,115 @@ python src/rtsp_monitor.py \
   --track
 ```
 
-The overlay shows stream health, for example `LIVE cap=25.0 infer=8.2 lat=120ms drop=14 rec=0`.
+The overlay shows stream health, for example:
+
+```text
+LIVE cap=25.0 infer=8.2 lat=120ms drop=14 rec=0
+```
+
+## Other Runtime Modes
+
+Combined YOLO + fight monitor without the threaded streaming layer:
+
+```bash
+python src/safety_monitor.py \
+  --source 0 \
+  --fight-model models/fight_detector.pth \
+  --output results/safety_monitor.mp4 \
+  --csv results/safety_monitor.csv \
+  --duration 10 \
+  --fight-device auto \
+  --yolo-device auto \
+  --track
+```
+
+YOLO person detection only:
+
+```bash
+python src/person_detector.py \
+  --source 0 \
+  --output results/webcam_people.mp4 \
+  --csv results/webcam_people.csv \
+  --duration 10 \
+  --device auto \
+  --track
+```
+
+Fight detection only on webcam or stream:
+
+```bash
+python src/webcam_processor.py \
+  --source 0 \
+  --model models/fight_detector.pth \
+  --output results/webcam_fight_demo.mp4 \
+  --csv results/webcam_fight_demo.csv \
+  --duration 10 \
+  --num-frames 16 \
+  --stride 8 \
+  --smooth-window 3 \
+  --threshold 0.55 \
+  --device auto
+```
+
+Single-video annotated inference:
+
+```bash
+python src/inference.py \
+  data/rwf2000/RWF-2000/val/Fight/example.avi \
+  --model models/fight_detector.pth \
+  --output results/example_annotated.mp4 \
+  --num-frames 16 \
+  --stride 8 \
+  --threshold 0.5 \
+  --no-display
+```
+
+Long-video sliding-window processing:
+
+```bash
+python src/long_video_processor.py \
+  input_video.mp4 \
+  --model models/fight_detector.pth \
+  --output results/input_video_annotated.mp4 \
+  --num-frames 16 \
+  --stride 8 \
+  --threshold 0.55 \
+  --smooth-window 5
+```
+
+This writes an annotated video and an `_events.csv` file with detected fight intervals.
+
+## Training
+
+```bash
+python src/train_rwf.py \
+  --data-dir data/rwf2000/RWF-2000 \
+  --model-dir models \
+  --epochs 20 \
+  --batch-size 8 \
+  --num-frames 16
+```
+
+The default mode freezes the pretrained R3D-18 backbone and trains the final classification layer.
+
+## Project Structure
+
+```text
+docs/assets/                # Curated public result images and demo video
+src/
+├── dataset_rwf.py           # RWF-2000 video dataset
+├── model.py                 # R3D-18 binary classifier
+├── train_rwf.py             # Training loop
+├── inference.py             # Annotated single-video inference
+├── long_video_processor.py  # Sliding-window smoothing and event export
+├── webcam_processor.py      # Live webcam/stream fight detection
+├── person_detector.py       # YOLO person boxes and anonymous tracking IDs
+├── safety_monitor.py        # Combined YOLO people + fight probability monitor
+└── rtsp_monitor.py          # Streaming monitor with reconnect, frame queue, health metrics
+```
 
 ## Notes
 
-This is a research/prototype pipeline, not a production safety system. Thresholds should be calibrated for the target camera domain and alert tolerance.
+- Thresholds should be calibrated for the target camera domain and alert tolerance.
+- The current model is a baseline trained on RWF-2000; real camera deployment needs more validation on the target environment.
+- Person tracking IDs are temporary object-track IDs, not identity recognition.
