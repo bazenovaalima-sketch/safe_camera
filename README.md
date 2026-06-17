@@ -11,6 +11,7 @@ The project classifies short surveillance-style video clips as `Fight` or `NonFi
 - Transfer learning with an optional frozen backbone
 - Single-video annotated inference
 - Long-video sliding-window processing with event CSV output
+- YOLO person detection/tracking for webcam, RTSP, or video files
 - CPU, CUDA, and Apple MPS device selection
 
 ## Project Structure
@@ -22,7 +23,10 @@ src/
 ├── model.py                 # R3D-18 binary classifier
 ├── train_rwf.py             # Training loop
 ├── inference.py             # Annotated single-video inference
-└── long_video_processor.py  # Sliding-window smoothing and event export
+├── long_video_processor.py  # Sliding-window smoothing and event export
+├── webcam_processor.py      # Live webcam/stream fight detection
+├── person_detector.py       # YOLO person boxes and anonymous tracking IDs
+└── safety_monitor.py        # Combined YOLO people + fight probability monitor
 ```
 
 Large local assets are intentionally ignored: datasets, trained weights, generated videos, and experiment outputs.
@@ -57,13 +61,13 @@ Official validation confusion matrix:
 
 ![Official validation confusion matrix](docs/assets/official_val_confusion_matrix.png)
 
-True-positive demo snapshot:
+Combined true-positive demo snapshot:
 
-This example was classified as `Fight` in all 17 sliding windows, with average `p_fight=0.801` and max `p_fight=0.903`.
+This example shows the combined monitor: YOLO draws temporary person tracking boxes while the fight model reports the smoothed fight probability. In this 150-frame demo, 102 of 134 scored frames were labeled `FIGHT`, with max smoothed `p_fight=0.745`.
 
-![True-positive fight detection snapshot](docs/assets/true_positive_snapshot.png)
+![Combined person detection and fight detection snapshot](docs/assets/true_positive_snapshot.png)
 
-True-positive annotated demo video:
+Combined annotated demo video:
 
 [Download/watch the MP4 demo](docs/assets/true_positive_demo.mp4)
 
@@ -127,6 +131,85 @@ python src/long_video_processor.py \
 ```
 
 This writes an annotated video and an `_events.csv` file with detected fight intervals.
+
+## Webcam Fight Detection
+
+```bash
+python src/webcam_processor.py \
+  --source 0 \
+  --model models/fight_detector.pth \
+  --output results/webcam_fight_demo.mp4 \
+  --csv results/webcam_fight_demo.csv \
+  --duration 10 \
+  --num-frames 16 \
+  --stride 8 \
+  --smooth-window 3 \
+  --threshold 0.55 \
+  --device auto
+```
+
+Use `--no-display` when running without a preview window.
+
+## YOLO Person Detection
+
+The person detector uses an Ultralytics YOLO model pretrained on COCO. COCO includes a ready `person` class, so no person-specific training is needed for the first prototype. The default `yolo11n.pt` weight is downloaded automatically on first run.
+
+Webcam:
+
+```bash
+python src/person_detector.py \
+  --source 0 \
+  --output results/webcam_people.mp4 \
+  --csv results/webcam_people.csv \
+  --duration 10 \
+  --device auto \
+  --track
+```
+
+Video file:
+
+```bash
+python src/person_detector.py \
+  --source input_video.mp4 \
+  --output results/input_people.mp4 \
+  --csv results/input_people.csv \
+  --device auto \
+  --track \
+  --no-display
+```
+
+`--track` gives temporary anonymous IDs such as `person 1` and `person 2`. It does not recognize a real person's identity.
+
+## Combined Safety Monitor
+
+This runs both parts together on the same stream: YOLO draws people, while the R3D-18 model estimates fight probability from a rolling 16-frame window.
+
+```bash
+python src/safety_monitor.py \
+  --source 0 \
+  --fight-model models/fight_detector.pth \
+  --output results/safety_monitor.mp4 \
+  --csv results/safety_monitor.csv \
+  --duration 10 \
+  --fight-device auto \
+  --yolo-device auto \
+  --track
+```
+
+For a video file:
+
+```bash
+python src/safety_monitor.py \
+  --source input_video.mp4 \
+  --fight-model models/fight_detector.pth \
+  --output results/input_safety_monitor.mp4 \
+  --csv results/input_safety_monitor.csv \
+  --duration 0 \
+  --track \
+  --no-display
+```
+
+The combined CSV includes `fight_label`, raw and smoothed `p_fight`, `people_count`, temporary `person_id`, and bounding-box coordinates.
 
 ## Notes
 
