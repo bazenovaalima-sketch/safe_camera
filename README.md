@@ -16,6 +16,7 @@ The project classifies short surveillance-style video clips as `Fight` or `NonFi
 ## Project Structure
 
 ```text
+docs/assets/                # Curated public result images and demo video
 src/
 ├── dataset_rwf.py           # RWF-2000 video dataset
 ├── model.py                 # R3D-18 binary classifier
@@ -25,6 +26,44 @@ src/
 ```
 
 Large local assets are intentionally ignored: datasets, trained weights, generated videos, and experiment outputs.
+
+## Current Results
+
+The first baseline was trained on the RWF-2000 `train/` split with a frozen R3D-18 backbone and a newly trained binary classification head. Final evaluation was done on the official untouched RWF-2000 `val/` split.
+
+| Metric | Value |
+|---|---:|
+| Official val videos | 400 |
+| Accuracy | 74.5% |
+| Fight precision | 71.9% |
+| Fight recall | 80.5% |
+| Fight F1 | 75.9% |
+| Fight class accuracy | 80.5% |
+| NonFight class accuracy | 68.5% |
+
+Confusion matrix on the official validation split:
+
+```text
+                Pred NonFight   Pred Fight
+True NonFight       137            63
+True Fight           39           161
+```
+
+Training curves:
+
+![Training curves](docs/assets/training_curves.png)
+
+Official validation confusion matrix:
+
+![Official validation confusion matrix](docs/assets/official_val_confusion_matrix.png)
+
+True-positive demo snapshot:
+
+![True-positive fight detection snapshot](docs/assets/true_positive_snapshot.png)
+
+True-positive annotated demo video:
+
+[Download/watch the MP4 demo](docs/assets/true_positive_demo.mp4)
 
 ## Setup
 

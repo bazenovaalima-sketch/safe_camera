@@ -25,6 +25,12 @@ results/
 *.mp4
 *.avi
 
+# Curated public demo assets
+!docs/
+!docs/assets/
+!docs/assets/*.png
+!docs/assets/*.mp4
+
 # Personal/project notes not intended for the public repo
 PROJECT_PLAN.md
 COLAB_SIMPLE_CODE.md
