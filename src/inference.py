@@ -113,16 +113,27 @@ class FightDetectionPipeline:
                 pred_class, confidence, fight_prob = last_prediction
                 label = self.class_names[pred_class]
                 color = self.colors[pred_class]
+                font_scale = max(0.45, min(1.0, w / 900.0))
+                thickness = max(1, int(round(font_scale * 3)))
 
                 # Draw label
                 cv2.putText(
                     frame,
-                    f'{label} conf={confidence:.2f} p_fight={fight_prob:.2f}',
-                    (50, 50),
+                    f'{label} conf={confidence:.2f}',
+                    (12, 28),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
+                    font_scale,
                     color,
-                    3
+                    thickness
+                )
+                cv2.putText(
+                    frame,
+                    f'p_fight={fight_prob:.2f}',
+                    (12, 52),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale,
+                    color,
+                    thickness
                 )
 
                 # Draw border if fight detected
@@ -132,9 +143,9 @@ class FightDetectionPipeline:
                 cv2.putText(
                     frame,
                     f'Collecting {self.num_frames} frames...',
-                    (50, 50),
+                    (12, 28),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
+                    max(0.45, min(1.0, w / 900.0)),
                     (255, 255, 255),
                     2
                 )

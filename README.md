@@ -59,6 +59,8 @@ Official validation confusion matrix:
 
 True-positive demo snapshot:
 
+This example was classified as `Fight` in all 17 sliding windows, with average `p_fight=0.801` and max `p_fight=0.903`.
+
 ![True-positive fight detection snapshot](docs/assets/true_positive_snapshot.png)
 
 True-positive annotated demo video:
