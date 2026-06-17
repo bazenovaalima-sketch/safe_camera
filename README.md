@@ -85,6 +85,10 @@ Large files are intentionally not stored in the repository:
 - generated videos and CSV outputs;
 - downloaded YOLO weights such as `yolo11n.pt`.
 
+Dataset source:
+
+- RWF-2000 on Kaggle: https://www.kaggle.com/datasets/vulamnguyen/rwf2000?select=RWF-2000
+
 Expected local RWF-2000 layout:
 
 ```text
