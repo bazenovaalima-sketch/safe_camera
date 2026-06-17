@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments
+venv/
+.venv/
+env/
+.env
+
+# OS/editor files
+.DS_Store
+*.swp
+
+# Large local assets
+data/
+models/
+results/
+*.pth
+*.pt
+*.onnx
+*.mp4
+*.avi
+
+# Personal/project notes not intended for the public repo
+PROJECT_PLAN.md
+COLAB_SIMPLE_CODE.md
+quick_test.py
