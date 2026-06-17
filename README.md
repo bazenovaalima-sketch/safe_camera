@@ -26,7 +26,8 @@ src/
 ├── long_video_processor.py  # Sliding-window smoothing and event export
 ├── webcam_processor.py      # Live webcam/stream fight detection
 ├── person_detector.py       # YOLO person boxes and anonymous tracking IDs
-└── safety_monitor.py        # Combined YOLO people + fight probability monitor
+├── safety_monitor.py        # Combined YOLO people + fight probability monitor
+└── rtsp_monitor.py          # Streaming monitor with reconnect, frame queue, health metrics
 ```
 
 Large local assets are intentionally ignored: datasets, trained weights, generated videos, and experiment outputs.
@@ -210,6 +211,58 @@ python src/safety_monitor.py \
 ```
 
 The combined CSV includes `fight_label`, raw and smoothed `p_fight`, `people_count`, temporary `person_id`, and bounding-box coordinates.
+
+## Streaming / RTSP Monitor
+
+`rtsp_monitor.py` is the more production-shaped monitor. It reads frames in a separate capture thread, keeps only a small queue of fresh frames, drops old frames when inference is slower than the camera, and records stream health metrics such as FPS, latency, dropped frames, and reconnect count.
+
+You can test this without an IP camera by using a local video file or the laptop webcam. Later, the same command accepts an RTSP URL.
+
+Test it on a local video file:
+
+```bash
+python src/rtsp_monitor.py \
+  --source docs/assets/true_positive_demo.mp4 \
+  --fight-model models/fight_detector.pth \
+  --output results/rtsp_file_demo.mp4 \
+  --csv results/rtsp_file_predictions.csv \
+  --health-csv results/rtsp_file_health.csv \
+  --duration 0 \
+  --fight-device auto \
+  --yolo-device auto \
+  --track \
+  --no-display
+```
+
+Test it on a laptop webcam:
+
+```bash
+python src/rtsp_monitor.py \
+  --source 0 \
+  --fight-model models/fight_detector.pth \
+  --output results/rtsp_webcam_demo.mp4 \
+  --csv results/rtsp_webcam_predictions.csv \
+  --health-csv results/rtsp_webcam_health.csv \
+  --duration 20 \
+  --fight-device auto \
+  --yolo-device auto \
+  --track
+```
+
+For a future IP camera, use the RTSP URL as the source:
+
+```bash
+python src/rtsp_monitor.py \
+  --source "rtsp://user:password@192.168.1.10:554/stream1" \
+  --fight-model models/fight_detector.pth \
+  --output results/rtsp_camera_demo.mp4 \
+  --csv results/rtsp_camera_predictions.csv \
+  --health-csv results/rtsp_camera_health.csv \
+  --duration 0 \
+  --track
+```
+
+The overlay shows stream health, for example `LIVE cap=25.0 infer=8.2 lat=120ms drop=14 rec=0`.
 
 ## Notes
 
